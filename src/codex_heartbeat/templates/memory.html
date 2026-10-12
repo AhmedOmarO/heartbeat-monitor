@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Memory · Heartbeat</title>
+<style>
+:root{color-scheme:dark;--bg:#090e16;--surface:#101925;--line:#263544;--text:#e8f0f3;--muted:#90a2ad;--mint:#5de0bd}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(circle at 35% -15%,#173247 0,transparent 38%),var(--bg);color:var(--text);font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.shell{max-width:1550px;min-height:100dvh;margin:auto;padding:18px clamp(18px,3vw,46px);display:flex;flex-direction:column;gap:16px}
+header{display:flex;align-items:center;justify-content:space-between;gap:20px}
+h1{font-size:34px;letter-spacing:-.045em;line-height:1.1;margin:0}
+.nav{display:flex;gap:8px}.nav a{color:#b5d9e6;text-decoration:none;border:1px solid var(--line);background:#14232f;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:650}.nav a[aria-current="page"]{color:#fff;border-color:#578878}
+.layout{display:grid;grid-template-columns:240px minmax(0,1fr);gap:12px;flex:1;min-height:0}
+aside,.document{background:linear-gradient(145deg,#14202c,#101923 60%);border:1px solid var(--line);border-radius:14px;min-width:0}
+aside{padding:18px 12px}.aside-title{padding:0 8px 10px;color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase}.files{display:flex;flex-direction:column;gap:3px}.files a{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:9px 10px;border-radius:8px;color:#b5c8d1;text-decoration:none;font:12px ui-monospace,SFMono-Regular,Menlo,monospace}.files a:hover{background:#1b3440}.files a[aria-current="page"]{background:#21443d;color:#d6fff1}
+.document{padding:18px;display:flex;flex-direction:column;gap:12px}.document-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px}.document h2{font-size:18px;margin:0;overflow-wrap:anywhere}.path{color:var(--muted);font:11px ui-monospace,SFMono-Regular,Menlo,monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.description{margin:0;color:var(--muted);font-size:12px}
+form{display:flex;flex-direction:column;gap:10px;flex:1;min-height:0}textarea,.source{width:100%;min-height:420px;flex:1;margin:0;padding:16px;border:1px solid #34505e;border-radius:10px;background:#0a141d;color:#e5eff1;font:12px/1.65 ui-monospace,SFMono-Regular,Menlo,monospace;tab-size:2;white-space:pre-wrap;overflow-wrap:anywhere}textarea{resize:vertical;outline:none}textarea:focus{border-color:var(--mint)}.source{overflow:auto}
+.actions{display:flex;align-items:center;gap:12px}.save{padding:9px 16px;border:0;border-radius:8px;background:#4dc9a6;color:#09221e;font:700 12px -apple-system,sans-serif;cursor:pointer}.save:hover{background:#78e6c4}.saved{color:var(--mint);font-size:12px}
+@media(max-width:760px){.shell{height:auto}.layout{grid-template-columns:1fr}aside{padding:12px}.files{flex-direction:row;overflow:auto}.files a{flex:none}.document{min-height:65dvh}header{align-items:flex-start;flex-wrap:wrap}h1{font-size:28px}}
+</style>
+</head>
+<body>
+<main class="shell">
+  <header><h1>Memory</h1><nav class="nav" aria-label="Dashboard views"><a href="/">Heartbeat</a><a href="/memory" aria-current="page">Memory</a></nav></header>
+  <div class="layout">
+    <aside aria-label="Markdown files"><div class="aside-title">Project files</div><div class="files">{% for name in files %}<a href="{{ url_for('memory_page', file=name) }}" {% if name == selected %}aria-current="page"{% endif %}>{{ name }}</a>{% endfor %}</div></aside>
+    <section class="document" aria-label="Selected Markdown file">
+      <div class="document-head"><h2>{{ selected }}</h2><span class="path" title="{{ root }}">{{ root }}</span></div>
+      {% if selected == 'MEMORY.md' %}
+      <p class="description">Project goals, decisions, commands, gotchas, and next steps. Saved in this project's MEMORY.md.</p>
+      <form method="post" action="{{ url_for('save_memory') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><textarea name="content" aria-label="Project memory Markdown" spellcheck="false">{{ content }}</textarea><div class="actions"><button class="save" type="submit">Save memory</button>{% if saved %}<span class="saved" role="status">Saved</span>{% endif %}</div></form>
+      {% else %}
+      <p class="description">Read-only Markdown from this project.</p><pre class="source">{{ content }}</pre>
+      {% endif %}
+    </section>
+  </div>
+</main>
+</body>
+</html>

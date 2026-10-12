@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Heartbeat · Agent monitor</title>
+<style>
+:root{color-scheme:dark;--bg:#090e16;--surface:#101925;--surface2:#14202d;--line:#263544;--text:#e8f0f3;--muted:#90a2ad;--dim:#607581;--mint:#5de0bd;--blue:#70adf7;--amber:#f6be68;--violet:#bb9bf5;--red:#f17878}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(circle at 35% -15%,#173247 0,transparent 38%),var(--bg);color:var(--text);font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+button{font:inherit;cursor:pointer}
+.shell{max-width:1550px;height:100dvh;min-height:620px;margin:auto;padding:clamp(14px,2vh,24px) clamp(18px,3vw,46px);display:flex;flex-direction:column}
+.top{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;margin-bottom:clamp(10px,1.5vh,18px)}
+.eyebrow{font:700 11px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.18em;text-transform:uppercase;color:var(--mint)}
+h1{font-size:clamp(28px,3vw,40px);line-height:1.08;letter-spacing:-.045em;margin:7px 0 8px;font-weight:730}
+.session-line{display:flex;align-items:center;gap:9px;min-width:0;color:var(--muted);font-size:12px}
+.session-line code{font:12px ui-monospace,SFMono-Regular,Menlo,monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:min(70vw,650px)}
+.live{display:flex;align-items:center;gap:8px;white-space:nowrap;border:1px solid #2b594f;background:#123028;padding:8px 11px;border-radius:999px;color:#9ef0d7;font-size:12px;font-weight:700;margin-top:10px}
+.live.quiet{border-color:#5b4c36;background:#30271b;color:#f5c985}.live.error{border-color:#723d43;background:#331f26;color:#ff9da3}
+.pulse{width:7px;height:7px;border-radius:50%;background:currentColor;box-shadow:0 0 0 4px #65d5ad24}
+.top-actions{display:flex;align-items:center;gap:12px}.view-link{color:#b5d9e6;text-decoration:none;border:1px solid var(--line);background:#14232f;border-radius:8px;padding:8px 12px;margin-top:10px;font-size:12px;font-weight:650}.view-link:hover{border-color:#6d9aab;color:#fff}
+.summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:clamp(10px,1.5vh,18px)}
+.metric,.panel{background:linear-gradient(145deg,#14202c,#101923 60%);border:1px solid var(--line);border-radius:14px;box-shadow:0 14px 40px #0000001c}
+.metric{min-height:0;padding:clamp(12px,1.6vh,18px) 20px}
+.metric .label{color:var(--muted);font-size:12px;font-weight:600;letter-spacing:.02em}
+.metric .value{font-size:30px;letter-spacing:-.04em;font-variant-numeric:tabular-nums;font-weight:730;margin-top:8px;line-height:1.1}
+.metric .note{color:var(--dim);font-size:11px;margin-top:5px}
+.dashboard{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:16px;align-items:stretch;flex:1;min-height:0}
+.left{display:grid;grid-template-rows:minmax(0,1fr) minmax(0,.45fr);gap:16px;min-width:0;min-height:0}
+.panel{display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden}
+.panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:20px 22px 13px;flex-shrink:0}
+h2{font-size:16px;letter-spacing:-.015em;margin:0;font-weight:700}
+.subtitle{font-size:12px;color:var(--muted);margin:5px 0 0}
+.ranges{display:flex;gap:3px;background:#0b141e;border:1px solid var(--line);border-radius:9px;padding:3px;flex:none}
+.ranges button{background:transparent;color:var(--muted);border:0;border-radius:6px;padding:5px 9px;font-size:12px}
+.ranges button:hover{color:var(--text)}
+.ranges button.active{background:#284356;color:#eff8fb;box-shadow:0 1px 4px #0005}
+.legend{display:flex;flex-wrap:wrap;gap:9px 17px;padding:0 22px 10px;color:var(--muted);font-size:11px;flex-shrink:0}
+.legend span{display:flex;align-items:center;gap:6px}
+.swatch{width:7px;height:7px;border-radius:2px;background:var(--c)}
+.chart-wrap{position:relative;flex:1;min-height:0;padding:0 15px 9px;overflow:auto}
+canvas{display:block;width:100%;height:100%}
+.panel-foot{display:flex;justify-content:space-between;gap:12px;border-top:1px solid var(--line);padding:11px 22px;color:var(--dim);font-size:11px;flex-shrink:0}
+.events-panel{min-height:0}
+.feed{flex:1;min-height:0;padding:0 10px 10px;overflow:auto}
+.feed-row{display:grid;grid-template-columns:8px minmax(0,1fr) auto;gap:10px;align-items:start;padding:12px;border-top:1px solid #22313e}
+.feed-row:first-child{border-top:0}
+.feed-dot{width:7px;height:7px;border-radius:50%;background:var(--c);margin-top:7px;box-shadow:0 0 12px var(--c)}
+.feed-title{font-size:12px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.feed-detail{font-size:11px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.feed-time{font:11px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--dim);white-space:nowrap;padding-top:2px}
+.empty{padding:30px 22px;color:var(--muted);font-size:13px}
+.tooltip{position:fixed;z-index:10;pointer-events:none;max-width:290px;padding:10px 12px;background:#253747;border:1px solid #557080;border-radius:8px;box-shadow:0 16px 36px #0008;font-size:12px;display:none}
+.tooltip strong{display:block;color:#fff;margin-bottom:3px}
+.tooltip small{display:block;color:#bdd0d7;overflow-wrap:anywhere;line-height:1.45}
+.info{display:inline-grid;place-items:center;vertical-align:middle;width:18px;height:18px;margin-left:3px;padding:0;border:1px solid #668492;border-radius:50%;background:#203440;color:#b9d5dc;font:700 11px/1 Georgia,serif}.info:hover,.info:focus-visible{color:#071b1b;background:#a2e9d2;border-color:#a2e9d2;outline:none}
+.help-popover{position:fixed;z-index:30;max-width:min(300px,calc(100vw - 24px));padding:11px 13px;border:1px solid #608091;border-radius:9px;background:#263b4a;color:#f0f8fa;box-shadow:0 16px 36px #0009;font-size:12px;line-height:1.5}.help-popover[hidden]{display:none}
+/* The split view keeps the heartbeat large and the summary compact. */
+.shell{display:grid;grid-template-columns:185px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);padding-top:clamp(10px,1.5vh,18px);padding-bottom:clamp(10px,1.5vh,18px)}
+h1{font-size:clamp(26px,2.5vw,34px);margin:4px 0 5px}
+.top{grid-column:1/-1;grid-row:1;margin-bottom:8px}
+.summary{grid-column:1;grid-row:2;grid-template-columns:1fr;grid-template-rows:repeat(6,minmax(0,1fr));gap:8px;margin:0 10px 0 0}
+.summary.claude{grid-template-rows:repeat(5,minmax(0,1fr))}.summary.claude .limit-metric{display:none}
+.summary .metric{min-height:0;overflow:hidden}
+.summary .value{font-size:clamp(18px,1.9vw,25px)}
+.metric{display:flex;flex-direction:column;justify-content:center;padding:8px 13px;border-radius:10px}
+.metric .value{font-size:clamp(21px,2.5vh,27px);margin-top:3px}
+.metric.has-error .value{color:var(--red)}
+.limit-metric{padding-top:6px;padding-bottom:6px}.limit-row{margin-top:4px}.limit-head{display:flex;justify-content:space-between;gap:6px;color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums}.limit-head strong{color:var(--text);font-weight:700}.limit-bar{height:4px;margin-top:2px;border-radius:4px;background:#263844;overflow:hidden}.limit-fill{display:block;height:100%;width:0;background:var(--mint);border-radius:4px}.limit-fill.high{background:var(--amber)}.limit-fill.critical{background:var(--red)}
+.dashboard{grid-column:2;grid-row:2;grid-template-columns:minmax(0,1fr) 260px;gap:10px}
+.left{grid-template-rows:minmax(0,1fr) minmax(190px,.18fr);gap:10px}
+.panel-head{padding:12px 16px 8px}
+.legend{padding:0 16px 7px;gap:6px 11px}
+.token-panel .panel-head{padding:8px 14px 4px}
+.eyebrow,.session-line,.metric .note,.subtitle,.panel-foot,.feed-detail,.legend .legend-level{display:none}
+.feed-row{padding:9px 10px}
+.activity-wrap{overflow-x:hidden;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#496271 #101925}
+.activity-wrap:focus-visible{outline:2px solid var(--mint);outline-offset:-2px}
+.activity-axis-wrap{height:30px;flex:none;padding:0 15px;border-top:1px solid var(--line)}
+.more-agents{margin-left:7px;color:var(--mint);font-size:11px;font-weight:650}
+.more-agents[hidden]{display:none}
+@media(max-width:820px){.shell{height:auto;min-height:100dvh;display:flex}.top{flex-wrap:wrap}.summary,.summary.claude{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:auto;margin:0 0 10px}.metric{min-height:96px}.dashboard{display:grid;grid-template-columns:1fr;grid-template-rows:auto;flex:none}.left{grid-template-rows:auto auto}.panel{min-height:0}.chart-wrap{flex:none}.activity-wrap{height:340px}.token-wrap{height:190px}.events-panel{height:300px}}
+@media(max-width:670px){.top{gap:10px}.metric{padding:14px}.metric .value{font-size:25px}.panel-head{flex-direction:column;padding:17px 16px 12px}.legend{padding-left:16px}.shell{padding-top:20px}.live{font-size:0;padding:9px}.pulse{width:8px;height:8px}.top-actions{gap:6px}.view-link{padding:8px;font-size:11px}}
+</style>
+</head>
+<body>
+<main class="shell">
+  <header class="top">
+    <div><div class="eyebrow" id="provider-name">Agent observability</div><h1>Heartbeat</h1><div class="session-line"><span>Session</span><code id="session-id">Connecting…</code></div></div>
+    <div class="top-actions"><a class="view-link" href="/memory">Memory</a><div id="live" class="live"><span class="pulse"></span><span id="live-label">Connecting</span></div></div>
+  </header>
+  <section class="summary" aria-label="Session summary">
+    <div class="metric"><div class="label">Turns <button class="info" type="button" data-term="Turns" data-help="Distinct turn IDs recorded for the main session across its full history. Events without a turn ID are not counted.">i</button></div><div class="value" id="turns">—</div><div class="note">Full session</div></div>
+    <div class="metric"><div class="label">Events <button class="info" type="button" data-term="Events in view" data-help="All timestamped log records from linked agents in the selected time range, including system and token records. Quiet agents can contribute records without showing a signal row.">i</button></div><div class="value" id="events">—</div><div class="note" id="window-note">Last 5 minutes</div></div>
+    <div class="metric limit-metric"><div class="label">Limits left <button class="info" type="button" data-term="Limits left" data-help="The percentage remaining in each Codex limit window, calculated from the last reported usage. Hover a bar for its reset time; expired reports show no value.">i</button></div><div class="limit-row" id="limit-primary"><div class="limit-head"><span class="limit-label">5h</span><strong class="limit-value">—</strong></div><div class="limit-bar"><span class="limit-fill"></span></div></div><div class="limit-row" id="limit-secondary"><div class="limit-head"><span class="limit-label">7d</span><strong class="limit-value">—</strong></div><div class="limit-bar"><span class="limit-fill"></span></div></div></div>
+    <div class="metric"><div class="label">Agents <button class="info" type="button" data-term="Agents" data-help="Active signal rows in this time range, followed by all linked agents in the session. Guardian sessions are excluded.">i</button></div><div class="value" id="agents">—</div><div class="note" id="agents-note">Main session</div></div>
+    <div class="metric"><div class="label">Errors <button class="info" type="button" data-term="Recorded errors" data-help="Error, failed-task, and aborted-turn records from linked agents in the selected time range. Tool failures without an error record may not appear here.">i</button></div><div class="value" id="errors">—</div></div>
+    <div class="metric"><div class="label">Last signal <button class="info" type="button" data-term="Last signal" data-help="Time since the latest plotted event from any linked agent. A flat trace means no plotted event was recorded, not that an agent is known to be idle.">i</button></div><div class="value" id="last-signal">—</div></div>
+  </section>
+  <div class="dashboard">
+    <div class="left">
+      <section class="panel signal-panel" aria-label="Activity timeline">
+        <div class="panel-head"><div><h2>Agent signal <button class="info" type="button" data-term="Agent signal" data-help="Each row is one agent with plotted activity in this range. Up to five rows are visible; scroll for more. Pulse height shows the event type. A flat stretch means no plotted event was recorded.">i</button><span class="more-agents" id="more-agents" hidden></span></h2><p class="subtitle">One waveform per active agent. Quiet agents are hidden for this range.</p></div><div class="ranges" aria-label="Time range"><button data-window="60">1m</button><button data-window="300" class="active">5m</button><button data-window="900">15m</button><button data-window="all">All</button></div></div>
+        <div class="legend"><span><i class="swatch" style="--c:var(--red)"></i>User input<span class="legend-level"> · low</span> <button class="info" type="button" data-term="User input" data-help="A recorded message from you creates a deep downward pulse.">i</button></span><span><i class="swatch" style="--c:var(--blue)"></i>Thinking<span class="legend-level"> · below zero</span> <button class="info" type="button" data-term="Thinking" data-help="A recorded reasoning event creates a smaller downward pulse.">i</button></span><span><i class="swatch" style="--c:var(--amber)"></i>Tools<span class="legend-level"> · above zero</span> <button class="info" type="button" data-term="Tools" data-help="A tool call or tool result creates an upward pulse.">i</button></span><span><i class="swatch" style="--c:var(--mint)"></i>Output<span class="legend-level"> · high</span> <button class="info" type="button" data-term="Output" data-help="A recorded assistant message creates a high upward pulse.">i</button></span><span><i class="swatch" style="--c:var(--violet)"></i>Complete <button class="info" type="button" data-term="Complete" data-help="A recorded task completion creates an upward pulse.">i</button></span><span><i class="swatch" style="--c:var(--red)"></i>Error <button class="info" type="button" data-term="Error" data-help="A recorded error or aborted turn creates a tall upward pulse.">i</button></span><span><i class="swatch" style="--c:var(--dim)"></i>Waiting<span class="legend-level"> · zero</span> <button class="info" type="button" data-term="Waiting" data-help="The trace rests at zero when no plotted event was recorded. This is an inferred quiet period, not a measured agent state.">i</button></span></div>
+        <div class="chart-wrap activity-wrap" role="region" tabindex="0" aria-label="Agent signals; scroll for more than five active agents"><canvas id="activity" aria-label="Agent heartbeat signal over time"></canvas></div>
+        <div class="activity-axis-wrap"><canvas id="activity-axis" aria-hidden="true"></canvas></div>
+        <div class="panel-foot"><span id="activity-note">Waiting for activity</span><span>Hover the signal for details</span></div>
+      </section>
+      <section class="panel token-panel" aria-label="Token observations">
+        <div class="panel-head"><div><h2>Tokens <button class="info" type="button" data-term="Cumulative token usage" data-help="The line connects cumulative token reports from the main session. The vertical scale zooms to this range. On hover, cached input and reasoning output are parts of the input and output counts, not extra tokens.">i</button></h2><p class="subtitle">Session total over the selected time range</p></div></div>
+        <div class="chart-wrap token-wrap"><canvas id="tokens" aria-label="Token usage observations over time"></canvas></div>
+        <div class="panel-foot"><span id="token-note">No reports yet</span><span>Main agent · cumulative reports</span></div>
+      </section>
+    </div>
+    <aside class="panel events-panel" aria-label="Recent events"><div class="panel-head"><div><h2>Recent events <button class="info" type="button" data-term="Recent events" data-help="The latest plotted signal events in the selected time range, from the main agent and visible subagents. System records are omitted here.">i</button></h2><p class="subtitle">Latest activity in the selected range</p></div></div><div class="feed" id="feed"><div class="empty">Waiting for events…</div></div></aside>
+  </div>
+</main>
+<div class="tooltip" id="tooltip" role="status"></div>
+<script>
+const activity=document.getElementById('activity'),activityAxis=document.getElementById('activity-axis'),tokens=document.getElementById('tokens'),tooltip=document.getElementById('tooltip');
+const palette={user:'#f17878',reasoning:'#70adf7',tool_call:'#f6be68',tool_output:'#e8a855',output:'#5de0bd',complete:'#bb9bf5',error:'#f17878',system:'#607581'};
+const names={user:'User input',reasoning:'Thinking',tool_call:'Tool call',tool_output:'Tool result',output:'Assistant output',complete:'Complete',error:'Error',system:'System'};
+const signalState=e=>e.subtype==='message.user'?'user':e.state;
+const signalLevel=e=>({user:-1,reasoning:-.43,tool_call:.58,tool_output:.38,output:1,complete:.82,error:1.08})[signalState(e)]??null;
+const agentLabel=s=>s.nickname||(s.type==='main'?'Main':s.type||'Agent');
+const savedWindow=new URLSearchParams(location.search).get('window')||sessionStorage.getItem('heartbeat-window');
+let seconds=savedWindow==='all'?null:[60,300,900].includes(Number(savedWindow))?Number(savedWindow):300,snapshot=null,hits={activity:[],tokens:[]},requesting=false,pendingRange=false,selectionVersion=0;
+const num=n=>Number(n||0).toLocaleString();
+const time=t=>new Date(t).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+const short=t=>new Date(t).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',...(seconds===60?{second:'2-digit'}:{})});
+const rangeLabel=()=>seconds===null?'All activity':`Last ${seconds/60} minute${seconds===60?'':'s'}`;
+function bounds(){let a=Date.parse(snapshot.start),b=Date.parse(snapshot.end);if(!Number.isFinite(a)||!Number.isFinite(b))return [0,1];if(b<=a)b=a+1000;return [a,b]}
+function canvasSetup(el){let r=el.getBoundingClientRect(),d=window.devicePixelRatio||1;el.width=Math.round(r.width*d);el.height=Math.round(r.height*d);let c=el.getContext('2d');c.setTransform(d,0,0,d,0,0);return [c,r.width,r.height]}
+function axis(c,left,right,top,bottom,start,end,labels=true){c.font='11px ui-monospace, SFMono-Regular, Menlo, monospace';c.textBaseline='middle';for(let i=0;i<=4;i++){let x=left+(right-left)*i/4;c.strokeStyle='#253746';c.lineWidth=1;c.beginPath();c.moveTo(Math.round(x)+.5,top);c.lineTo(Math.round(x)+.5,bottom);c.stroke();if(labels){c.fillStyle='#8194a1';c.textAlign=i===0?'left':i===4?'right':'center';c.fillText(short(start+(end-start)*i/4),x,bottom+18)}}}
+function xAt(t,left,right,start,end){return left+(Date.parse(t)-start)/(end-start)*(right-left)}
+function drawActivity(){
+ if(!snapshot)return;
+ const ss=(snapshot.sessions||[]).filter(s=>(s.events||[]).some(e=>signalLevel(e)!==null));
+ const viewport=Math.max(1,activity.parentElement.clientHeight-9),visible=Math.min(ss.length,5);
+ const rowHeight=Math.max(1,(viewport-14)/Math.max(1,visible));
+ activity.style.height=(ss.length>5?14+rowHeight*ss.length:viewport)+'px';
+ const [c,w,h]=canvasSetup(activity),left=w<530?77:104,right=w-18,top=14,bottom=h,[start,end]=bounds();
+ activityAxis.style.width=w+'px';const [axisContext,axisWidth,axisHeight]=canvasSetup(activityAxis);axisContext.clearRect(0,0,axisWidth,axisHeight);axis(axisContext,left,right,0,0,start,end);
+ const more=document.getElementById('more-agents');more.hidden=ss.length<=5;more.textContent=ss.length>5?`+${ss.length-5} ↓`:'';
+ activity.parentElement.tabIndex=ss.length>5?0:-1;activity.parentElement.setAttribute('aria-label',`Agent signals: ${ss.map(agentLabel).join(', ')}${ss.length>5?'; scroll for more':''}`);
+ hits.activity=[];c.clearRect(0,0,w,h);axis(c,left,right,top,bottom,start,end,false);
+ if(!ss.length){c.fillStyle='#9aabb4';c.textAlign='center';c.font='13px -apple-system, sans-serif';c.fillText('No agent signal in this range',left+(right-left)/2,top+(bottom-top)/2);return}
+ const row=(bottom-top)/ss.length;
+ ss.forEach((s,i)=>{
+  const y0=top+i*row,base=y0+row/2,scale=Math.min(105,row*.39),guides=row<80?[['WAITING',0,'#a7bac4']]:row<120?[['OUTPUT',1,'#5de0bd'],['WAITING',0,'#a7bac4'],['USER',-1,'#f17878']]:[['OUTPUT',1,'#5de0bd'],['TOOLS',.58,'#f6be68'],['WAITING',0,'#a7bac4'],['THINKING',-.43,'#70adf7'],['USER',-1,'#f17878']];
+  c.fillStyle=i%2?'#091714':'#0b1916';c.fillRect(left,y0,right-left,row);
+  c.strokeStyle='#15322d';c.lineWidth=.7;for(let gx=left+24;gx<right;gx+=24){c.beginPath();c.moveTo(gx,y0);c.lineTo(gx,y0+row);c.stroke()}
+  c.textAlign='left';c.textBaseline='middle';c.fillStyle='#e0edf0';c.font=`700 ${row<54?10:12}px -apple-system, sans-serif`;c.fillText(s.type==='main'?'MAIN':agentLabel(s),4,y0+Math.min(18,row/2),left-10);
+  if(row>88){c.fillStyle='#78909d';c.font='10px ui-monospace, monospace';c.fillText(String(s.id||'').slice(0,8),4,y0+34)}
+  for(const [label,level,color] of guides){const gy=base-level*scale;c.strokeStyle=level===0?'#5b7480':'#263a48';c.lineWidth=level===0?1.4:1;c.setLineDash(level===0?[]:[3,5]);c.beginPath();c.moveTo(left,gy+.5);c.lineTo(right,gy+.5);c.stroke();c.setLineDash([]);c.fillStyle=color;c.globalAlpha=level===0?1:.77;c.textAlign='right';c.font='10px ui-monospace, monospace';c.fillText(label,left-9,gy);c.globalAlpha=1}
+  const events=(s.events||[]).filter(e=>signalLevel(e)!==null).sort((a,b)=>Date.parse(a.timestamp)-Date.parse(b.timestamp)||a.ordinal-b.ordinal);
+  const peaks=[];
+  for(const e of events){const x=xAt(e.timestamp,left,right,start,end),previous=peaks[peaks.length-1];if(x<left||x>right)continue;if(previous&&x-previous.x<7){previous.count++;if(Math.abs(signalLevel(e))>=Math.abs(signalLevel(previous.data)))previous.data=e}else peaks.push({x,data:e,count:1})}
+  c.save();c.beginPath();c.rect(left,y0,right-left,row);c.clip();
+  c.lineCap='round';c.lineJoin='round';
+  c.shadowColor='#51e6aa';c.shadowBlur=7;c.strokeStyle='#3e8d72';c.lineWidth=1.8;c.beginPath();c.moveTo(left,base);c.lineTo(right,base);c.stroke();c.shadowBlur=0;
+  for(let j=0;j<peaks.length;j++){
+   const peak=peaks[j],x=peak.x,e=peak.data,level=signalLevel(e),height=level*scale,color=palette[signalState(e)]||palette.system;
+   const before=j?x-peaks[j-1].x:Infinity,after=j+1<peaks.length?peaks[j+1].x-x:Infinity;
+   const width=Math.max(4,Math.min(18,before*.48,after*.48));
+   const a=x-width,b=x+width;
+   c.shadowColor=color;c.shadowBlur=9;c.strokeStyle=color;c.lineWidth=2.4;c.beginPath();
+   c.moveTo(a,base);
+   c.lineTo(x-width*.76,base);
+   c.quadraticCurveTo(x-width*.58,base-height*.19,x-width*.44,base-height*.16);
+   c.quadraticCurveTo(x-width*.30,base,x-width*.23,base);
+   c.lineTo(x-width*.10,base+height*.12);
+   c.lineTo(x,base-height);
+   c.lineTo(x+width*.12,base+height*.14);
+   c.quadraticCurveTo(x+width*.26,base,x+width*.38,base);
+   c.quadraticCurveTo(x+width*.59,base-height*.26,x+width*.72,base-height*.20);
+   c.quadraticCurveTo(x+width*.89,base,x+width,base);
+   c.stroke();c.shadowBlur=0;
+   hits.activity.push({x,y:base-height,base,width,data:e,agent:s,count:peak.count});
+  }
+  c.strokeStyle='#73eeb1';c.lineWidth=1.5;c.beginPath();c.moveTo(right,base-12);c.lineTo(right,base+12);c.stroke();c.restore();
+  if(!peaks.length){c.fillStyle='#9aabb4';c.textAlign='center';c.font='13px -apple-system, sans-serif';c.fillText('Waiting at zero · no activity in this range',left+(right-left)/2,base-15)}
+  c.strokeStyle='#2a3c49';c.lineWidth=1;c.beginPath();c.moveTo(0,y0+row-.5);c.lineTo(right,y0+row-.5);c.stroke();
+ });
+}
+{% include "token_chart.html" %}
+function draw(){drawActivity();drawTokens()}
+function setText(id,value){document.getElementById(id).textContent=value}
+function renderLimit(name,report,observedAt){const row=document.getElementById('limit-'+name),label=row.querySelector('.limit-label'),value=row.querySelector('.limit-value'),fill=row.querySelector('.limit-fill'),minutes=Number(report?.window_minutes),used=Number(report?.used_percent),reset=Number(report?.resets_at),expired=Number.isFinite(reset)&&reset>0&&reset*1000<Date.now(),available=report?.used_percent!=null&&Number.isFinite(used)&&!expired,remaining=Math.max(0,Math.min(100,100-used));label.textContent=minutes===10080?'7d':minutes>=1440&&minutes%1440===0?`${minutes/1440}d`:minutes>=60&&minutes%60===0?`${minutes/60}h`:minutes>0?`${minutes}m`:name==='primary'?'5h':'7d';value.textContent=available?`${Math.round(remaining)}%`:'—';fill.style.width=available?`${remaining}%`:'0%';fill.className='limit-fill'+(remaining<=10&&available?' critical':remaining<=25&&available?' high':'');row.title=report?`${available?Math.round(remaining)+'% left · ':''}${observedAt?'Reported '+time(observedAt)+' · ':''}${reset>0?'Resets '+new Date(reset*1000).toLocaleString():'Reset time unavailable'}${expired?' · report expired':''}`:'No limit report yet'}
+function renderLimits(limits){renderLimit('primary',limits?.primary,limits?.observed_at);renderLimit('secondary',limits?.secondary,limits?.observed_at)}
+function render(){if(!snapshot)return;let ss=snapshot.sessions||[],events=ss.flatMap(s=>(s.events||[]).map(e=>({...e,agent:s}))).sort((a,b)=>Date.parse(b.timestamp)-Date.parse(a.timestamp)||b.ordinal-a.ordinal),significant=events.filter(e=>signalLevel(e)!==null);document.querySelector('.summary').classList.toggle('claude',snapshot.provider==='claude');document.title=`Heartbeat · ${snapshot.provider==='claude'?'Claude Code':'Codex'} monitor`;setText('provider-name',snapshot.provider==='claude'?'Claude Code observability':'Codex observability');setText('session-id',snapshot.session_id||snapshot.file||'Unknown');setText('turns',num(snapshot.turns));setText('events',num(events.length));if(snapshot.provider!=='claude')renderLimits(snapshot.rate_limits);setText('agents',`${new Set(significant.map(e=>e.agent.id)).size}/${ss.length}`);setText('agents-note',ss.length===1?'Main session':`${ss.length-1} child agent${ss.length===2?'':'s'} + main`);let errorCount=events.filter(e=>e.state==='error').length;setText('errors',num(errorCount));document.getElementById('errors').parentElement.classList.toggle('has-error',errorCount>0);let signalAge=significant.length?Math.max(0,Math.floor((Date.now()-Date.parse(significant[0].timestamp))/1000)):null;setText('last-signal',signalAge===null?'—':signalAge<60?`${signalAge}s`:signalAge<3600?`${Math.floor(signalAge/60)}m`:`${Math.floor(signalAge/3600)}h`);setText('window-note',rangeLabel());setText('activity-note',`${num(significant.length)} signal events · ${ss.length-new Set(significant.map(e=>e.agent.id)).size} quiet rows hidden`);const tokenRows=snapshot.token_records||[],newTokenRows=tokenRows.filter(r=>!r.anchor),tokenDelta=newTokenRows.length?newTokenRows[newTokenRows.length-1].total-tokenRows[0].total:0;setText('token-note',newTokenRows.length?`${num(newTokenRows.length)} cumulative reports · ${tokenDelta>=0?'+':''}${num(tokenDelta)} since ${tokenRows[0].anchor?'window start':'first report'}`:'No cumulative reports in view');
+ let latest=Date.parse(snapshot.latest_activity),age=Date.now()-latest,live=document.getElementById('live');live.className='live'+(Number.isFinite(age)&&age<60000?'':' quiet');setText('live-label',Number.isFinite(age)?age<60000?'Live':'Quiet':'Waiting for activity');
+ let feed=document.getElementById('feed');feed.replaceChildren();if(!significant.length){let empty=document.createElement('div');empty.className='empty';empty.textContent='No activity in this range. Try a longer time window.';feed.append(empty)}for(let e of significant.slice(0,16)){let row=document.createElement('div');row.className='feed-row';let dot=document.createElement('i');dot.className='feed-dot';dot.style.setProperty('--c',palette[signalState(e)]||palette.system);let body=document.createElement('div'),title=document.createElement('div'),detail=document.createElement('div'),clock=document.createElement('div');title.className='feed-title';title.textContent=(e.agent.type!=='main'?`${agentLabel(e.agent)} · `:'')+(e.tool_name||names[signalState(e)]||e.state);detail.className='feed-detail';detail.textContent=`${agentLabel(e.agent)} · ${names[signalState(e)]||e.state} · #${e.ordinal}`;clock.className='feed-time';clock.textContent=time(e.timestamp);body.append(title,detail);row.append(dot,body,clock);feed.append(row)}draw()}
+function showTooltip(event,kind){let rect=event.currentTarget.getBoundingClientRect(),x=event.clientX-rect.left,y=event.clientY-rect.top,items=hits[kind];let hit=items.findLast(p=>Math.abs(p.x-x)<(kind==='tokens'?8:Math.max(9,p.width))&&(kind==='tokens'?Math.abs(p.y-y)<15:y>=Math.min(p.y,p.base)-12&&y<=Math.max(p.y,p.base)+12));if(!hit){tooltip.style.display='none';return}let d=hit.data;tooltip.replaceChildren();let heading=document.createElement('strong'),detail=document.createElement('small');if(kind==='tokens'){heading.textContent=`${num(d.total)} tokens`;detail.textContent=`${time(d.timestamp)} · ${hit.delta==null?'first report':(hit.delta>=0?'+':'')+num(hit.delta)+' since previous'} · input ${num(d.input)} · output ${num(d.output)} · cached ${num(d.cached)} · reasoning ${num(d.reasoning)}`}else{heading.textContent=d.tool_name||names[signalState(d)]||d.state;detail.textContent=`${time(d.timestamp)} · ${agentLabel(hit.agent)} · ${names[signalState(d)]||d.state} · event #${d.ordinal}${hit.count>1?' · '+hit.count+' nearby events':''}`}tooltip.append(heading,detail);tooltip.style.display='block';tooltip.style.left=Math.min(event.clientX+14,innerWidth-305)+'px';tooltip.style.top=Math.min(event.clientY+14,innerHeight-76)+'px'}
+for(let [el,kind] of [[activity,'activity'],[tokens,'tokens']]){el.addEventListener('mousemove',e=>showTooltip(e,kind));el.addEventListener('mouseleave',()=>tooltip.style.display='none')}
+document.querySelectorAll('[data-window]').forEach(b=>{let selected=b.dataset.window===(seconds===null?'all':String(seconds));b.classList.toggle('active',selected);b.setAttribute('aria-pressed',String(selected));b.addEventListener('click',()=>{document.querySelectorAll('[data-window]').forEach(x=>{let active=x===b;x.classList.toggle('active',active);x.setAttribute('aria-pressed',String(active))});seconds=b.dataset.window==='all'?null:Number(b.dataset.window);selectionVersion++;activity.parentElement.scrollTop=0;sessionStorage.setItem('heartbeat-window',seconds===null?'all':String(seconds));load(true)})});
+new ResizeObserver(draw).observe(activity.parentElement);window.addEventListener('resize',draw);
+async function load(force=false){if(requesting){if(force)pendingRange=true;return}requesting=true;const requestedWindow=seconds===null?'all':seconds,requestedVersion=selectionVersion;try{let response=await fetch('/api/snapshot?window='+requestedWindow,{cache:'no-store'});let data=await response.json();if(requestedVersion!==selectionVersion){pendingRange=true;return}if(!response.ok)throw Error(data.error||`HTTP ${response.status}`);snapshot=data;render()}catch(err){if(requestedVersion!==selectionVersion){pendingRange=true;return}let live=document.getElementById('live');live.className='live error';setText('live-label',String(err.message||err));if(!snapshot){setText('session-id','Unable to load session');setText('activity-note',String(err.message||err))}}finally{requesting=false;if(pendingRange){pendingRange=false;load()}}}
+load();setInterval(load,2000);
+</script>
+{% include "help_widget.html" %}
+</body>
+</html>

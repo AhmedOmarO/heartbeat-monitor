@@ -1,0 +1,37 @@
+const compactTokens=value=>Intl.NumberFormat(undefined,{notation:'compact',maximumFractionDigits:2}).format(Math.round(value));
+function drawTokens(){
+ if(!snapshot)return;
+ tokens.style.height=Math.max(126,tokens.parentElement.clientHeight-9)+'px';
+ const [c,w,h]=canvasSetup(tokens),left=w<530?67:82,right=w-16,top=14,bottom=h-31,[start,end]=bounds(),records=snapshot.token_records||[];
+ hits.tokens=[];c.clearRect(0,0,w,h);axis(c,left,right,top,bottom,start,end);
+ if(!records.length){c.fillStyle='#9aabb4';c.textAlign='center';c.font='13px -apple-system, sans-serif';c.fillText('No cumulative token reports in this range',left+(right-left)/2,top+(bottom-top)/2);return}
+
+ // Rollout imports can contain hundreds of historical reports stamped within a
+ // few milliseconds. Keep the last report per second, the chart's time resolution.
+ const visible=records.filter((record,index)=>record.anchor||index===records.length-1||Math.floor(Date.parse(record.timestamp)/1000)!==Math.floor(Date.parse(records[index+1].timestamp)/1000));
+ const values=visible.map(r=>Number(r.total)||0),min=Math.min(...values),max=Math.max(...values),span=max-min,pad=span?span*.12:Math.max(100,max*.002),low=Math.max(0,min-pad),high=max+pad;
+ const yValue=value=>bottom-(value-low)/(high-low)*(bottom-top);
+ c.font='10px ui-monospace, monospace';c.textBaseline='middle';c.textAlign='right';
+ for(const fraction of (h>=175?[0,.5,1]:[0,1])){
+  const y=bottom-(bottom-top)*fraction;
+  c.strokeStyle='#29414a';c.lineWidth=1;c.beginPath();c.moveTo(left,y+.5);c.lineTo(right,y+.5);c.stroke();
+  c.fillStyle='#94a8b3';const tick=low+(high-low)*fraction;c.fillText(high-low<100000?num(Math.round(tick)):compactTokens(tick),left-9,y);
+ }
+
+ // A cumulative counter holds its last reported value until the next report.
+ const points=visible.map((record,index)=>({record,x:xAt(record.timestamp,left,right,start,end),y:yValue(Number(record.total)||0),delta:index?Number(record.total)-Number(visible[index-1].total):null}));
+ if(points.length){
+  const fill=c.createLinearGradient(0,top,0,bottom);fill.addColorStop(0,'rgba(93,224,189,.25)');fill.addColorStop(1,'rgba(93,224,189,.015)');
+  c.beginPath();c.moveTo(points[0].x,bottom);c.lineTo(points[0].x,points[0].y);for(let i=1;i<points.length;i++){c.lineTo(points[i].x,points[i-1].y);c.lineTo(points[i].x,points[i].y)}c.lineTo(right,points[points.length-1].y);c.lineTo(right,bottom);c.closePath();c.fillStyle=fill;c.fill();
+ }
+ c.beginPath();c.moveTo(points[0].x,points[0].y);
+ for(let i=1;i<points.length;i++){c.lineTo(points[i].x,points[i-1].y);c.lineTo(points[i].x,points[i].y)}
+ c.lineTo(right,points[points.length-1].y);
+ c.strokeStyle='#5de0bd';c.lineWidth=2.6;c.lineJoin='round';c.shadowColor='#5de0bd';c.shadowBlur=7;c.stroke();c.shadowBlur=0;
+ for(const point of points){
+  if(point.record.anchor)continue;
+  c.fillStyle='#a8f4dc';c.beginPath();c.arc(point.x,point.y,2.6,0,Math.PI*2);c.fill();
+  hits.tokens.push({x:point.x,y:point.y,data:point.record,delta:point.delta});
+ }
+ if(!hits.tokens.length){c.fillStyle='#9aabb4';c.textAlign='center';c.font='12px -apple-system, sans-serif';c.fillText('No new cumulative report in this range',left+(right-left)/2,top+(bottom-top)/2)}
+}

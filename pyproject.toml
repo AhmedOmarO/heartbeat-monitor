@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "codex-heartbeat"
+version = "0.4.1"
+description = "Live heartbeat monitor for local Codex and Claude Code sessions"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{name = "Ahmed Omar"}]
+dependencies = ["PySide6>=6.7", "Flask>=3.0", "prometheus-client>=0.20"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+codex-heartbeat = "codex_heartbeat.cli:main"
+heartbeat = "codex_heartbeat.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+codex_heartbeat = ["templates/*.html"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
