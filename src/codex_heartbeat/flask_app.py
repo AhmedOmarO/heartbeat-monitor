@@ -9,6 +9,7 @@ from pathlib import Path
 
 from flask import Flask, abort, jsonify, redirect, render_template, request, url_for
 
+from .catalog import list_sessions, resolve_session_key, session_name
 from .discovery import (claude_home, current_claude_session_file, current_session_file,
                         find_claude_session_file, find_session_file, session_files)
 from .claude_parser import cumulative_usage as claude_cumulative_usage, parse_claude_session
@@ -139,14 +140,26 @@ def create_app(selector: str, provider: str = "auto") -> Flask:
     app = Flask(__name__)
     memory_token = secrets.token_urlsafe(32)
 
+    def selected_root() -> tuple[Path, str] | None:
+        key = request.args.get("session")
+        if key:
+            return resolve_session_key(key, provider)
+        path = _resolve(selector, provider)
+        if path is None:
+            return None
+        return path, provider if provider != "auto" else _provider_for(path)
+
     @app.get("/")
     def index():
-        return render_template("dashboard.html", provider=provider)
+        return render_template("dashboard.html", provider=provider,
+                               default_session_label="Follow latest" if selector == "current" else "Launch default")
 
     @app.get("/memory")
     def memory_page():
-        selected = _resolve(selector, provider)
-        root = project_root(selected, provider if provider != "auto" else _provider_for(selected) if selected else "codex")
+        selection = selected_root()
+        if selection is None:
+            abort(404)
+        root = project_root(*selection)
         files = markdown_files(root)
         selected = request.args.get("file", MEMORY_NAME)
         if selected not in files:
@@ -163,6 +176,7 @@ def create_app(selector: str, provider: str = "auto") -> Flask:
             content=content,
             csrf_token=memory_token,
             saved=request.args.get("saved") == "1",
+            session_key=request.args.get("session"),
         )
 
     @app.post("/memory")
@@ -172,26 +186,35 @@ def create_app(selector: str, provider: str = "auto") -> Flask:
         content = request.form.get("content", "")
         if len(content) > 200_000:
             abort(413)
-        selected = _resolve(selector, provider)
-        root = project_root(selected, provider if provider != "auto" else _provider_for(selected) if selected else "codex")
+        selection = selected_root()
+        if selection is None:
+            abort(404)
+        root = project_root(*selection)
         path = root / MEMORY_NAME
         if not path.resolve().is_relative_to(root):
             abort(403)
         path.write_text(content, encoding="utf-8")
-        return redirect(url_for("memory_page", saved=1))
+        return redirect(url_for("memory_page", saved=1, session=request.args.get("session")))
+
+    @app.get("/api/sessions")
+    def session_catalog():
+        return jsonify({"sessions": list_sessions(provider)})
 
     @app.get("/api/snapshot")
     def snapshot():
-        root_path = _resolve(selector, provider)
-        if not root_path:
+        selection = selected_root()
+        if selection is None:
             return jsonify({"error": "no session found"}), 404
-        sessions = _family(root_path, provider)
+        root_path, selected_provider = selection
+        sessions = _family(root_path, selected_provider)
         root = sessions[0]
         timestamps = [e.timestamp for s in sessions for e in s.events if e.timestamp]
         if not timestamps:
             return jsonify({"error": "no timestamps"}), 404
         latest = max(timestamps)
-        end = max(datetime.now(latest.tzinfo or timezone.utc), latest)
+        end = latest if request.args.get("session") or selector != "current" else max(
+            datetime.now(latest.tzinfo or timezone.utc), latest
+        )
         q = request.args.get("window", "300")
         start = min(timestamps) if q == "all" else end - timedelta(seconds=max(1, int(q)))
 
@@ -250,6 +273,9 @@ def create_app(selector: str, provider: str = "auto") -> Flask:
 
         return jsonify({
             "session_id": root.session_id,
+            "session_key": f"{root.provider}:{root.session_id}",
+            "session_name": session_name(root),
+            "project": Path(root.cwd).name if root.cwd else root.path.parent.name,
             "provider": root.provider,
             "file": root.path.name,
             "turns": _turn_count(root),

@@ -33,4 +33,6 @@ heartbeat <session-id>       # a specific session
 
 The dashboard opens at `http://127.0.0.1:8765`. Choose 1m, 5m, 15m, or All to change the time range. The Memory page lets you read project Markdown files and edit `MEMORY.md`.
 
+Use the session button in the header to pick a session. The list is newest first; filter it by name, project, provider, or ID. Older sessions open at their last recorded activity.
+
 Heartbeat reads local session files under `~/.codex` and `~/.claude` (or the configured home directories). It does not upload session data. Claude Code transcripts do not contain the Codex usage-limit windows, so their limit card is hidden.
