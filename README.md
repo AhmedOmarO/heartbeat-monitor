@@ -2,9 +2,9 @@
 
 A local browser dashboard for Codex and Claude Code sessions. Heartbeat shows a signal for each active agent, recent tool activity, and cumulative token usage.
 
-These screenshots use synthetic session data.
+Example dashboard captures:
 
-![Five agents in the heartbeat dashboard](screenshots/transition-5-agents-1280x720.png)
+![Main session with active thinking, tool, and output signals](screenshots/fanout-live-fixture-1m-1280x720.png)
 
 When more than five agents are active, scroll the signal panel to see the rest:
 
@@ -13,6 +13,15 @@ When more than five agents are active, scroll the signal panel to see the rest:
 ## Install
 
 Requires Python 3.10 or newer.
+
+Install the command with pipx:
+
+```bash
+pipx install 'git+https://github.com/AhmedOmarO/heartbeat-monitor.git'
+heartbeat
+```
+
+For a local editable checkout:
 
 ```bash
 git clone https://github.com/AhmedOmarO/heartbeat-monitor.git
